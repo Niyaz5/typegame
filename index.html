@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typing Game</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+    font-family: 'Courier New', Courier, monospace;
+    background-color: #1d1f21;
+    color: #c5c8c6;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+    flex-direction: column;
+}
+
+.container {
+    text-align: center;
+    width: 80%;
+    position: relative;
+}
+
+.paragraph {
+    background-color: #282a2e;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    white-space: pre-wrap;
+    text-align: left;
+    font-size: 18px;
+    line-height: 1.5;
+    width: 1065px;
+}
+
+.typing-box {
+    width: 100%;
+    padding: 10px;
+    font-size: 18px;
+    border: 2px solid #c5c8c6;
+    border-radius: 8px;
+    outline: none;
+    background-color: #1d1f21;
+    color: #c5c8c6;
+    margin-bottom: 20px;
+    resize: none;
+}
+
+.correct {
+    color: #b5bd68;
+}
+
+.incorrect {
+    color: #cc6666;
+    text-decoration: underline;
+}
+
+.missing {
+    color: #f0c674;
+}
+
+.timer, .title {
+    margin-top: 20px;
+    font-size: 24px;
+}
+
+.title {
+    font-size: 36px;
+    margin-bottom: 20px;
+}
+
+.button {
+    background-color: #373b41;
+    color: #c5c8c6;
+    padding: 10px 20px;
+    margin: 10px;
+    border: 2px solid #c5c8c6;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    font-size: 18px;
+    display: inline-block;
+}
+
+.button:hover {
+    background-color: #282a2e;
+}
+
+.hidden {
+    display: none;
+}
+
+.home-screen, .game-screen {
+    transition: opacity 0.5s;
+}
+
+.home-screen.hidden, .game-screen.hidden {
+    opacity: 0;
+}
+
+.modal, .time-modal, .game-over-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #282a2e;
+    color: #c5c8c6;
+    padding: 20px;
+    border-radius: 8px;
+    z-index: 1000;
+    display: none;
+    text-align: center;
+    font-size: 18px;
+}
+
+.modal.active, .time-modal.active, .game-over-modal.active {
+    display: block;
+}
+
+.time-modal button, .game-over-modal button {
+    display: inline-block;
+    margin: 10px;
+}
+
+.game-over-modal .button {
+    margin: 5px;
+    display: inline-block;
+}
+
+#pauseModal {
+    background-color: #ff4c4c;
+}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Home Screen -->
+        <div class="home-screen" id="homeScreen">
+            <div class="title">Typing Game</div>
+            <div>
+                <button class="button" id="startGame">Start Game</button>
+                <button class="button" id="selectTime">Select Time</button>
+                <button class="button" id="contact">Contact</button>
+            </div>
+            <div id="selectedTime" class="timer">Time: 60s</div>
+        </div>
+
+        <!-- Game Screen -->
+        <div class="game-screen hidden" id="gameScreen">
+            <div class="title">Typing Game</div>
+            <div class="paragraph" id="paragraph"></div>
+            <textarea id="typingBox" class="typing-box" rows="5" autofocus placeholder="Type the text shown above"></textarea>
+            <div class="timer" id="timer">Time: 0s</div>
+            <div>
+                <button class="button" id="pauseGame">Pause</button>
+                <button class="button hidden" id="resumeGame">Resume</button>
+            </div>
+        </div>
+
+        <!-- Pause Modal -->
+        <div class="modal" id="pauseModal">Game Paused</div>
+
+        <!-- Time Modal -->
+        <div class="time-modal" id="timeModal">
+            <button class="button" data-time="60">1 Minute</button>
+            <button class="button" data-time="120">2 Minutes</button>
+            <button class="button" data-time="180">3 Minutes</button>
+        </div>
+
+        <!-- Game Over Modal -->
+        <div class="game-over-modal" id="gameOverModal">
+            <div>Game Over!</div>
+            <div class="button-group">
+                <button class="button" id="replayGame">Restart</button>
+                <button class="button" id="mainMenu">Main Menu</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+       let currentParagraph = "";
+const typingBox = document.getElementById('typingBox');
+const timerElement = document.getElementById('timer');
+const paragraphElement = document.getElementById('paragraph');
+const homeScreen = document.getElementById('homeScreen');
+const gameScreen = document.getElementById('gameScreen');
+const startGameButton = document.getElementById('startGame');
+const selectTimeButton = document.getElementById('selectTime');
+const pauseGameButton = document.getElementById('pauseGame');
+const resumeGameButton = document.getElementById('resumeGame');
+const pauseModal = document.getElementById('pauseModal');
+const timeModal = document.getElementById('timeModal');
+const selectedTimeDisplay = document.getElementById('selectedTime');
+const gameOverModal = document.getElementById('gameOverModal');
+const replayGameButton = document.getElementById('replayGame');
+const mainMenuButton = document.getElementById('mainMenu');
+
+let timer = 0;
+let interval;
+let isPaused = false;
+let gameTime = 60; // Default game time is 60 seconds
+let paragraphs = [];
+let usedParagraphs = [];
+
+async function fetchParagraphs() {
+    const response = await fetch('paragraphs.json');
+    paragraphs = await response.json();
+    // Reset the used paragraphs when a new game starts
+    usedParagraphs = [];
+}
+
+function getRandomParagraph() {
+    if (paragraphs.length === 0) return ""; // No paragraphs available
+
+    let availableParagraphs = paragraphs.filter(p => !usedParagraphs.includes(p));
+    
+    if (availableParagraphs.length === 0) {
+        // All paragraphs have been used, reset usedParagraphs
+        availableParagraphs = paragraphs.slice();
+        usedParagraphs = [];
+    }
+
+    const randomIndex = Math.floor(Math.random() * availableParagraphs.length);
+    const paragraph = availableParagraphs[randomIndex];
+    
+    usedParagraphs.push(paragraph);
+    return paragraph;
+}
+
+function startTimer() {
+    if (!interval) {
+        interval = setInterval(() => {
+            if (!isPaused) {
+                timer++;
+                timerElement.textContent = `Time: ${timer}s`;
+                if (timer >= gameTime) {
+                    clearInterval(interval);
+                    showGameOver();
+                }
+            }
+        }, 1000);
+    }
+}
+
+function highlightText() {
+    const typedText = typingBox.value;
+    let displayedText = '';
+
+    for (let i = 0; i < currentParagraph.length; i++) {
+        if (i < typedText.length) {
+            if (typedText[i] === currentParagraph[i]) {
+                displayedText += `<span class="correct">${typedText[i]}</span>`;
+            } else {
+                displayedText += `<span class="incorrect">${currentParagraph[i]}</span>`;
+            }
+        } else {
+            displayedText += `<span class="missing">${currentParagraph[i]}</span>`;
+        }
+    }
+
+    paragraphElement.innerHTML = displayedText;
+
+    // Check if the paragraph is completed
+    if (typedText === currentParagraph) {
+        switchParagraph();
+    }
+}
+
+function startGame() {
+    fetchParagraphs().then(() => {
+        currentParagraph = getRandomParagraph();
+        paragraphElement.textContent = currentParagraph;
+        typingBox.value = '';
+        typingBox.focus();
+        timer = 0;
+        timerElement.textContent = `Time: 0s`;
+        startTimer();
+        homeScreen.classList.add('hidden');
+        gameScreen.classList.remove('hidden');
+        typingBox.disabled = false;  // Enable typing box
+    });
+}
+
+function pauseGame() {
+    isPaused = true;
+    typingBox.disabled = true;  // Disable typing box
+    pauseGameButton.classList.add('hidden');
+    resumeGameButton.classList.remove('hidden');
+    pauseModal.classList.add('active');  // Show custom pause message
+}
+
+function resumeGame() {
+    isPaused = false;
+    typingBox.disabled = false;  // Enable typing box
+    pauseGameButton.classList.remove('hidden');
+    resumeGameButton.classList.add('hidden');
+    pauseModal.classList.remove('active');  // Hide custom pause message
+}
+
+function switchParagraph() {
+    currentParagraph = getRandomParagraph();
+    paragraphElement.textContent = currentParagraph;
+    typingBox.value = '';
+    typingBox.focus();
+}
+
+function showGameOver() {
+    gameOverModal.classList.add('active');
+    typingBox.disabled = true;  // Disable typing box
+}
+
+function resetGame() {
+    clearInterval(interval);
+    interval = null;
+    homeScreen.classList.remove('hidden');
+    gameScreen.classList.add('hidden');
+    gameOverModal.classList.remove('active');
+    timer = 0;
+    timerElement.textContent = `Time: 0s`;
+    typingBox.disabled = false;  // Enable typing box
+}
+
+startGameButton.addEventListener('click', startGame);
+pauseGameButton.addEventListener('click', pauseGame);
+resumeGameButton.addEventListener('click', resumeGame);
+typingBox.addEventListener('input', highlightText);
+selectTimeButton.addEventListener('click', () => {
+    timeModal.classList.add('active');
+});
+timeModal.addEventListener('click', (e) => {
+    if (e.target.classList.contains('button')) {
+        gameTime = parseInt(e.target.dataset.time, 10);
+        selectedTimeDisplay.textContent = `Time: ${gameTime}s`;
+        timeModal.classList.remove('active');
+    }
+});
+replayGameButton.addEventListener('click', () => {
+    gameOverModal.classList.remove('active');
+    resetGame();  // Ensure game settings are reset
+    startGame();  // Restart game with the selected time
+});
+mainMenuButton.addEventListener('click', resetGame);
+
+    </script>
+</body>
+</html>
